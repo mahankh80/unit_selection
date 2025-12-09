@@ -1,11 +1,13 @@
 from django.contrib import admin
 from django.urls import include, path
-from rest_framework.authtoken.views import obtain_auth_token
+from courses.auth_views import login, logout, current_user
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # لاگین مدیر (و هر کاربر دیگری) از طریق توکن DRF
-    path("api/auth/login/", obtain_auth_token, name="api-login"),
+    # Authentication endpoints
+    path("api/auth/login/", login, name="api-login"),
+    path("api/auth/logout/", logout, name="api-logout"),
+    path("api/auth/me/", current_user, name="api-current-user"),
     # اپ دروس
     path("api/", include("courses.urls")),
 ]
