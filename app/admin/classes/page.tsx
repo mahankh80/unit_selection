@@ -1,198 +1,378 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EditIcon } from "@components/icons/Edit";
 import { DeleteIcon } from "@components/icons/Delete";
+import {
+  getCourses,
+  getClasses,
+  createClass,
+  updateClass,
+  deleteClass,
+  type Course as APICourse,
+  type CourseOffering,
+} from "@lib/api";
 
-type CourseClass = {
+type Class = {
   id: number;
-  courseCode: string;
+  courseId: number;
   courseName: string;
+  courseCode: string;
+  courseUnits: number;
   instructor: string;
+  classNumber: string;
   capacity: number;
   enrolled: number;
-  classNumber: string;
-  schedule: string;
+  classTime: string;
   examTime: string;
 };
 
-const mockClasses: CourseClass[] = [
-  {
-    id: 1,
-    courseCode: "CE-101",
-    courseName: "مبانی برنامه‌نویسی",
-    instructor: "دکتر احمدی",
-    capacity: 30,
-    enrolled: 24,
-    classNumber: "۳۰۱",
-    schedule: "شنبه ۱۴-۱۶، دوشنبه ۱۴-۱۶",
-    examTime: "۱۴۰۳/۱۰/۱۵ ساعت ۱۰",
-  },
-  {
-    id: 2,
-    courseCode: "CE-201",
-    courseName: "ساختمان داده",
-    instructor: "دکتر محمدی",
-    capacity: 25,
-    enrolled: 20,
-    classNumber: "۲۰۵",
-    schedule: "یکشنبه ۱۰-۱۲، سه‌شنبه ۱۰-۱۲",
-    examTime: "۱۴۰۳/۱۰/۱۸ ساعت ۱۴",
-  },
-];
+// Helper functions برای parse و format زمان‌ها
+const parseClassTime = (classTime: string) => {
+  // فرمت: "شنبه 14-16 کلاس 301"
+  const dayMatch = classTime.match(/(شنبه|یکشنبه|دوشنبه|سه‌شنبه|چهارشنبه|پنج‌شنبه|جمعه)/);
+  const timeMatch = classTime.match(/(\d+)-(\d+)/);
+  const locationMatch = classTime.match(/کلاس\s+(\S+)/);
+  
+  return {
+    day: dayMatch ? dayMatch[1] : "",
+    startHour: timeMatch ? timeMatch[1] : "",
+    endHour: timeMatch ? timeMatch[2] : "",
+    location: locationMatch ? locationMatch[1] : "",
+  };
+};
+
+const formatClassTime = (day: string, startHour: string, endHour: string, location: string) => {
+  if (!day || !startHour || !endHour) return "";
+  const locationPart = location ? ` کلاس ${location}` : "";
+  return `${day} ${startHour}-${endHour}${locationPart}`;
+};
+
+const parseExamTime = (examTime: string) => {
+  // فرمت: "1404/04/15 - 9:00" یا "1404/04/15 - ساعت 9:00"
+  const dateMatch = examTime.match(/(\d{4})\/(\d{2})\/(\d{2})/);
+  const timeMatch = examTime.match(/(\d{1,2}):?(\d{2})?/);
+  
+  return {
+    date: dateMatch ? `${dateMatch[1]}/${dateMatch[2]}/${dateMatch[3]}` : "",
+    hour: timeMatch ? timeMatch[1] : "",
+    minute: timeMatch && timeMatch[2] ? timeMatch[2] : "00",
+  };
+};
+
+const formatExamTime = (date: string, hour: string, minute: string) => {
+  if (!date || !hour) return "";
+  const minutePart = minute || "00";
+  return `${date} - ${hour}:${minutePart}`;
+};
 
 export default function ClassesPage() {
-  const [classes, setClasses] = useState<CourseClass[]>(mockClasses);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [courses, setCourses] = useState<APICourse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [editingClass, setEditingClass] = useState<CourseClass | null>(null);
+  const [editingClass, setEditingClass] = useState<Class | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({
-    courseCode: "",
+    courseId: "",
     instructor: "",
-    capacity: "",
     classNumber: "",
-    schedule: "",
-    examTime: "",
+    capacity: "",
+    // زمان کلاس - ساختاریافته
+    classDay: "",
+    classStartHour: "",
+    classEndHour: "",
+    classLocation: "",
+    // زمان امتحان - ساختاریافته
+    examDate: "",
+    examHour: "",
+    examMinute: "",
   });
 
-  // لیست دروس موجود (در حالت واقعی از API می‌گیریم)
-  const availableCourses = [
-    { code: "CE-101", name: "مبانی برنامه‌نویسی" },
-    { code: "CE-201", name: "ساختمان داده" },
-    { code: "CE-202", name: "آزمایشگاه ساختمان داده" },
-  ];
+  // بارگذاری داده‌ها
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // بارگذاری همزمان دروس و کلاس‌ها
+      const [apiCourses, apiClasses] = await Promise.all([
+        getCourses(),
+        getClasses(),
+      ]);
+
+      setCourses(apiCourses);
+
+      // تبدیل داده‌های API به فرمت UI
+      const uiClasses: Class[] = apiClasses.map((cls) => ({
+        id: cls.id,
+        courseId: cls.course_detail?.id || 0,
+        courseName: cls.course_name || cls.course_detail?.name || "",
+        courseCode: cls.course_code || cls.course_detail?.code || "",
+        courseUnits: cls.course_units || cls.course_detail?.units || 0,
+        instructor: cls.instructor,
+        classNumber: cls.class_number,
+        capacity: cls.capacity,
+        enrolled: cls.enrolled_count,
+        classTime: cls.class_time,
+        examTime: cls.exam_time,
+      }));
+
+      setClasses(uiClasses);
+    } catch (err) {
+      setError("خطا در دریافت اطلاعات");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAdd = () => {
     setEditingClass(null);
     setFormData({
-      courseCode: "",
+      courseId: "",
       instructor: "",
-      capacity: "",
       classNumber: "",
-      schedule: "",
-      examTime: "",
+      capacity: "",
+      classDay: "",
+      classStartHour: "",
+      classEndHour: "",
+      classLocation: "",
+      examDate: "",
+      examHour: "",
+      examMinute: "00",
     });
     setShowModal(true);
   };
 
-  const handleEdit = (classItem: CourseClass) => {
-    setEditingClass(classItem);
+  const handleEdit = (cls: Class) => {
+    setEditingClass(cls);
+    
+    // Parse زمان کلاس
+    const classTimeParsed = parseClassTime(cls.classTime);
+    
+    // Parse زمان امتحان
+    const examTimeParsed = parseExamTime(cls.examTime);
+    
     setFormData({
-      courseCode: classItem.courseCode,
-      instructor: classItem.instructor,
-      capacity: classItem.capacity.toString(),
-      classNumber: classItem.classNumber,
-      schedule: classItem.schedule,
-      examTime: classItem.examTime,
+      courseId: cls.courseId.toString(),
+      instructor: cls.instructor,
+      classNumber: cls.classNumber,
+      capacity: cls.capacity.toString(),
+      classDay: classTimeParsed.day,
+      classStartHour: classTimeParsed.startHour,
+      classEndHour: classTimeParsed.endHour,
+      classLocation: classTimeParsed.location,
+      examDate: examTimeParsed.date,
+      examHour: examTimeParsed.hour,
+      examMinute: examTimeParsed.minute,
     });
     setShowModal(true);
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm("آیا از حذف این کلاس اطمینان دارید؟")) {
-      setClasses(classes.filter((c) => c.id !== id));
+  const handleDelete = async (id: number) => {
+    if (!confirm("آیا از حذف این کلاس اطمینان دارید؟")) {
+      return;
+    }
+
+    try {
+      await deleteClass(id);
+      await loadData();
+    } catch (err) {
+      alert("خطا در حذف کلاس");
+      console.error(err);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
 
-    const selectedCourse = availableCourses.find(
-      (c) => c.code === formData.courseCode
-    );
+    try {
+      // Validation
+      if (!formData.classDay || !formData.classStartHour || !formData.classEndHour) {
+        alert("لطفاً تمام فیلدهای زمان کلاس را پر کنید");
+        setSubmitting(false);
+        return;
+      }
 
-    if (!selectedCourse) return;
+      if (parseInt(formData.classStartHour) >= parseInt(formData.classEndHour)) {
+        alert("ساعت پایان باید بعد از ساعت شروع باشد");
+        setSubmitting(false);
+        return;
+      }
 
-    const classData: CourseClass = {
-      id: editingClass?.id || Date.now(),
-      courseCode: formData.courseCode,
-      courseName: selectedCourse.name,
-      instructor: formData.instructor,
-      capacity: parseInt(formData.capacity),
-      enrolled: editingClass?.enrolled || 0,
-      classNumber: formData.classNumber,
-      schedule: formData.schedule,
-      examTime: formData.examTime,
-    };
+      if (!formData.examDate || !formData.examHour) {
+        alert("لطفاً تاریخ و ساعت امتحان را وارد کنید");
+        setSubmitting(false);
+        return;
+      }
 
-    if (editingClass) {
-      setClasses(
-        classes.map((c) => (c.id === editingClass.id ? classData : c))
+      // Validate تاریخ شمسی (فرمت: YYYY/MM/DD)
+      const datePattern = /^\d{4}\/\d{2}\/\d{2}$/;
+      if (!datePattern.test(formData.examDate)) {
+        alert("فرمت تاریخ صحیح نیست. مثال: 1404/04/15");
+        setSubmitting(false);
+        return;
+      }
+
+      // Format زمان کلاس
+      const classTime = formatClassTime(
+        formData.classDay,
+        formData.classStartHour,
+        formData.classEndHour,
+        formData.classLocation
       );
-    } else {
-      setClasses([...classes, classData]);
-    }
 
-    setShowModal(false);
+      // Format زمان امتحان
+      const examTime = formatExamTime(
+        formData.examDate,
+        formData.examHour,
+        formData.examMinute || "00"
+      );
+
+      const classData = {
+        course_id: parseInt(formData.courseId),
+        instructor: formData.instructor,
+        class_number: formData.classNumber,
+        capacity: parseInt(formData.capacity),
+        class_time: classTime,
+        exam_time: examTime,
+        semester: "1404-1", // ترم جاری
+      };
+
+      if (editingClass) {
+        await updateClass(editingClass.id, classData);
+      } else {
+        await createClass(classData);
+      }
+
+      setShowModal(false);
+      await loadData();
+    } catch (err) {
+      alert("خطا در ذخیره کلاس");
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="page">
+        <div className="loading">در حال بارگذاری...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="page">
+        <div className="error-message">
+          {error}
+          <button className="btn btn--primary" onClick={loadData}>
+            تلاش مجدد
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="page-content">
+    <div className="page">
       <div className="page-header">
-        <h1 className="page-title">مدیریت کلاس‌ها</h1>
-        <button className="btn btn--primary" onClick={handleAdd}>
-          افزودن کلاس جدید
+        <h2 className="page-title">مدیریت کلاس‌ها</h2>
+        <button 
+          className="btn btn--primary" 
+          onClick={handleAdd}
+          disabled={courses.length === 0}
+        >
+          + افزودن کلاس جدید
         </button>
       </div>
 
-      <div className="table-container">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>کد درس</th>
-              <th>نام درس</th>
-              <th>استاد</th>
-              <th>کلاس</th>
-              <th>ظرفیت</th>
-              <th>ثبت‌نام</th>
-              <th>زمان برگزاری</th>
-              <th>زمان امتحان</th>
-              <th>عملیات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {classes.map((classItem) => (
-              <tr key={classItem.id}>
-                <td>{classItem.courseCode}</td>
-                <td>{classItem.courseName}</td>
-                <td>{classItem.instructor}</td>
-                <td>{classItem.classNumber}</td>
-                <td>{classItem.capacity}</td>
-                <td>
-                  <span
-                    className={`badge ${
-                      classItem.enrolled >= classItem.capacity
-                        ? "badge--orange"
-                        : "badge--green"
-                    }`}
-                  >
-                    {classItem.enrolled} / {classItem.capacity}
-                  </span>
-                </td>
-                <td>{classItem.schedule}</td>
-                <td>{classItem.examTime}</td>
-                <td>
-                  <div className="table-actions">
-                    <button
-                      className="btn-icon btn-icon--edit"
-                      onClick={() => handleEdit(classItem)}
-                      title="ویرایش"
-                    >
-                      <EditIcon />
-                    </button>
-                    <button
-                      className="btn-icon btn-icon--delete"
-                      onClick={() => handleDelete(classItem.id)}
-                      title="حذف"
-                    >
-                      <DeleteIcon />
-                    </button>
-                  </div>
-                </td>
+      {courses.length === 0 ? (
+        <div className="empty-state">
+          <p>ابتدا باید دروس را تعریف کنید</p>
+          <a href="/admin/courses" className="btn btn--primary">
+            رفتن به مدیریت دروس
+          </a>
+        </div>
+      ) : classes.length === 0 ? (
+        <div className="empty-state">
+          <p>هیچ کلاسی برگزار نشده است</p>
+          <button className="btn btn--primary" onClick={handleAdd}>
+            افزودن اولین کلاس
+          </button>
+        </div>
+      ) : (
+        <div className="table-container">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>کد درس</th>
+                <th>نام درس</th>
+                <th>استاد</th>
+                <th>شماره کلاس</th>
+                <th>ظرفیت</th>
+                <th>ثبت‌نام شده</th>
+                <th>زمان کلاس</th>
+                <th>زمان امتحان</th>
+                <th>عملیات</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {classes.map((cls) => (
+                <tr key={cls.id}>
+                  <td>{cls.courseCode}</td>
+                  <td>{cls.courseName}</td>
+                  <td>{cls.instructor}</td>
+                  <td>{cls.classNumber}</td>
+                  <td>{cls.capacity}</td>
+                  <td>
+                    <span
+                      className={`badge ${
+                        cls.enrolled >= cls.capacity
+                          ? "badge--red"
+                          : cls.enrolled >= cls.capacity * 0.8
+                          ? "badge--orange"
+                          : "badge--green"
+                      }`}
+                    >
+                      {cls.enrolled}
+                    </span>
+                  </td>
+                  <td>{cls.classTime}</td>
+                  <td>{cls.examTime}</td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        className="btn-icon btn-icon--edit"
+                        onClick={() => handleEdit(cls)}
+                        title="ویرایش"
+                      >
+                        <EditIcon />
+                      </button>
+                      <button
+                        className="btn-icon btn-icon--delete"
+                        onClick={() => handleDelete(cls.id)}
+                        title="حذف"
+                      >
+                        <DeleteIcon />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
@@ -204,6 +384,7 @@ export default function ClassesPage() {
               <button
                 className="modal-close"
                 onClick={() => setShowModal(false)}
+                disabled={submitting}
               >
                 ✕
               </button>
@@ -215,16 +396,17 @@ export default function ClassesPage() {
                   <label className="form-label">انتخاب درس</label>
                   <select
                     className="form-input"
-                    value={formData.courseCode}
+                    value={formData.courseId}
                     onChange={(e) =>
-                      setFormData({ ...formData, courseCode: e.target.value })
+                      setFormData({ ...formData, courseId: e.target.value })
                     }
                     required
+                    disabled={submitting || !!editingClass}
                   >
-                    <option value="">درس مورد نظر را انتخاب کنید</option>
-                    {availableCourses.map((course) => (
-                      <option key={course.code} value={course.code}>
-                        {course.code} - {course.name}
+                    <option value="">درس را انتخاب کنید</option>
+                    {courses.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.code} - {course.name} ({course.units} واحد)
                       </option>
                     ))}
                   </select>
@@ -241,6 +423,7 @@ export default function ClassesPage() {
                       setFormData({ ...formData, instructor: e.target.value })
                     }
                     required
+                    disabled={submitting}
                   />
                 </div>
 
@@ -249,56 +432,163 @@ export default function ClassesPage() {
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="مثال: ۳۰۱"
+                    placeholder="مثال: 01"
                     value={formData.classNumber}
                     onChange={(e) =>
                       setFormData({ ...formData, classNumber: e.target.value })
                     }
                     required
+                    disabled={submitting}
                   />
                 </div>
 
-                <div className="form-group form-group--full">
-                  <label className="form-label">ظرفیت کلاس</label>
+                <div className="form-group">
+                  <label className="form-label">ظرفیت</label>
                   <input
                     type="number"
                     className="form-input"
                     min="1"
-                    placeholder="مثال: ۳۰"
+                    max="200"
+                    placeholder="30"
                     value={formData.capacity}
                     onChange={(e) =>
                       setFormData({ ...formData, capacity: e.target.value })
                     }
                     required
+                    disabled={submitting}
                   />
                 </div>
 
                 <div className="form-group form-group--full">
-                  <label className="form-label">زمان برگزاری</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="مثال: شنبه ۱۴-۱۶، دوشنبه ۱۴-۱۶"
-                    value={formData.schedule}
-                    onChange={(e) =>
-                      setFormData({ ...formData, schedule: e.target.value })
-                    }
-                    required
-                  />
+                  <label className="form-label">زمان کلاس</label>
+                  <div className="form-row">
+                    <div className="form-col">
+                      <select
+                        className="form-input"
+                        value={formData.classDay}
+                        onChange={(e) =>
+                          setFormData({ ...formData, classDay: e.target.value })
+                        }
+                        required
+                        disabled={submitting}
+                      >
+                        <option value="">روز هفته</option>
+                        <option value="شنبه">شنبه</option>
+                        <option value="یکشنبه">یکشنبه</option>
+                        <option value="دوشنبه">دوشنبه</option>
+                        <option value="سه‌شنبه">سه‌شنبه</option>
+                        <option value="چهارشنبه">چهارشنبه</option>
+                        <option value="پنج‌شنبه">پنج‌شنبه</option>
+                        <option value="جمعه">جمعه</option>
+                      </select>
+                    </div>
+                    <div className="form-col">
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="ساعت شروع"
+                        min="8"
+                        max="20"
+                        value={formData.classStartHour}
+                        onChange={(e) =>
+                          setFormData({ ...formData, classStartHour: e.target.value })
+                        }
+                        required
+                        disabled={submitting}
+                      />
+                    </div>
+                    <div className="form-col">
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="ساعت پایان"
+                        min="8"
+                        max="20"
+                        value={formData.classEndHour}
+                        onChange={(e) =>
+                          setFormData({ ...formData, classEndHour: e.target.value })
+                        }
+                        required
+                        disabled={submitting}
+                      />
+                    </div>
+                    <div className="form-col">
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="شماره کلاس (مثال: 301)"
+                        value={formData.classLocation}
+                        onChange={(e) =>
+                          setFormData({ ...formData, classLocation: e.target.value })
+                        }
+                        disabled={submitting}
+                      />
+                    </div>
+                  </div>
+                  <small className="form-hint">
+                    مثال: شنبه 14-16 کلاس 301
+                  </small>
                 </div>
 
                 <div className="form-group form-group--full">
                   <label className="form-label">زمان امتحان</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="مثال: ۱۴۰۳/۱۰/۱۵ ساعت ۱۰"
-                    value={formData.examTime}
-                    onChange={(e) =>
-                      setFormData({ ...formData, examTime: e.target.value })
-                    }
-                    required
-                  />
+                  <div className="form-row">
+                    <div className="form-col">
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="تاریخ (1404/04/15)"
+                        pattern="\d{4}/\d{2}/\d{2}"
+                        value={formData.examDate}
+                        onChange={(e) => {
+                          let value = e.target.value.replace(/\D/g, ""); // فقط اعداد
+                          // Auto-format: YYYY/MM/DD
+                          if (value.length > 4) {
+                            value = value.slice(0, 4) + "/" + value.slice(4);
+                          }
+                          if (value.length > 7) {
+                            value = value.slice(0, 7) + "/" + value.slice(7, 9);
+                          }
+                          setFormData({ ...formData, examDate: value });
+                        }}
+                        maxLength={10}
+                        required
+                        disabled={submitting}
+                      />
+                    </div>
+                    <div className="form-col">
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="ساعت (0-23)"
+                        min="0"
+                        max="23"
+                        value={formData.examHour}
+                        onChange={(e) =>
+                          setFormData({ ...formData, examHour: e.target.value })
+                        }
+                        required
+                        disabled={submitting}
+                      />
+                    </div>
+                    <div className="form-col">
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="دقیقه (0-59)"
+                        min="0"
+                        max="59"
+                        value={formData.examMinute}
+                        onChange={(e) =>
+                          setFormData({ ...formData, examMinute: e.target.value })
+                        }
+                        disabled={submitting}
+                      />
+                    </div>
+                  </div>
+                  <small className="form-hint">
+                    مثال: 1404/04/15 - 9:00
+                  </small>
                 </div>
               </div>
 
@@ -307,11 +597,20 @@ export default function ClassesPage() {
                   type="button"
                   className="btn btn--secondary"
                   onClick={() => setShowModal(false)}
+                  disabled={submitting}
                 >
                   انصراف
                 </button>
-                <button type="submit" className="btn btn--primary">
-                  {editingClass ? "ذخیره تغییرات" : "افزودن کلاس"}
+                <button
+                  type="submit"
+                  className="btn btn--primary"
+                  disabled={submitting}
+                >
+                  {submitting
+                    ? "در حال ذخیره..."
+                    : editingClass
+                    ? "ذخیره تغییرات"
+                    : "افزودن کلاس"}
                 </button>
               </div>
             </form>
@@ -321,4 +620,3 @@ export default function ClassesPage() {
     </div>
   );
 }
-

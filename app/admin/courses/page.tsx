@@ -1,8 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EditIcon } from "@components/icons/Edit";
 import { DeleteIcon } from "@components/icons/Delete";
+import {
+  getCourses,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+  type Course as APICourse,
+} from "@lib/api";
+
+// Map برای تبدیل نوع‌ها بین فارسی و انگلیسی
+const courseTypeMap = {
+  "نظری": "THEORETICAL",
+  "عملی": "PRACTICAL",
+  "عمومی": "GENERAL",
+  "اختیاری": "ELECTIVE",
+} as const;
+
+const courseTypeMapReverse = {
+  "THEORETICAL": "نظری",
+  "PRACTICAL": "عملی",
+  "GENERAL": "عمومی",
+  "ELECTIVE": "اختیاری",
+} as const;
 
 type CourseType = "نظری" | "عملی" | "عمومی" | "اختیاری";
 
@@ -12,48 +34,63 @@ type Course = {
   name: string;
   units: number;
   type: CourseType;
-  prerequisites: string[];
+  prerequisites: number[];
+  prerequisiteNames?: string[];
 };
 
-const mockCourses: Course[] = [
-  {
-    id: 1,
-    code: "CE-101",
-    name: "مبانی برنامه‌نویسی",
-    units: 3,
-    type: "نظری",
-    prerequisites: [],
-  },
-  {
-    id: 2,
-    code: "CE-201",
-    name: "ساختمان داده",
-    units: 3,
-    type: "نظری",
-    prerequisites: ["CE-101"],
-  },
-  {
-    id: 3,
-    code: "CE-202",
-    name: "آزمایشگاه ساختمان داده",
-    units: 1,
-    type: "عملی",
-    prerequisites: ["CE-101"],
-  },
-];
-
 export default function CoursesPage() {
-  const [courses, setCourses] = useState<Course[]>(mockCourses);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     code: "",
     name: "",
     units: "",
     type: "نظری" as CourseType,
-    prerequisites: [] as string[],
+    prerequisites: [] as number[],
   });
+
+  // بارگذاری لیست دروس
+  useEffect(() => {
+    loadCourses();
+  }, []);
+
+  const loadCourses = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const apiCourses = await getCourses();
+      
+      // تبدیل داده‌های API به فرمت UI
+      const uiCourses: Course[] = apiCourses.map((course) => {
+        // برای هر prerequisite، نام درس رو پیدا می‌کنیم
+        const prerequisiteNames = course.prerequisites
+          .map(prereqId => apiCourses.find(c => c.id === prereqId)?.code)
+          .filter(Boolean) as string[];
+
+        return {
+          id: course.id,
+          code: course.code,
+          name: course.name,
+          units: course.units,
+          type: courseTypeMapReverse[course.course_type] || "نظری",
+          prerequisites: course.prerequisites,
+          prerequisiteNames: prerequisiteNames,
+        };
+      });
+      
+      setCourses(uiCourses);
+    } catch (err) {
+      setError("خطا در دریافت لیست دروس");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAdd = () => {
     setEditingCourse(null);
@@ -79,46 +116,83 @@ export default function CoursesPage() {
     setShowModal(true);
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm("آیا از حذف این درس اطمینان دارید؟")) {
-      setCourses(courses.filter((c) => c.id !== id));
+  const handleDelete = async (id: number) => {
+    if (!confirm("آیا از حذف این درس اطمینان دارید؟")) {
+      return;
+    }
+
+    try {
+      await deleteCourse(id);
+      await loadCourses();
+    } catch (err) {
+      alert("خطا در حذف درس");
+      console.error(err);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
 
-    const courseData: Course = {
-      id: editingCourse?.id || Date.now(),
-      code: formData.code,
-      name: formData.name,
-      units: parseInt(formData.units),
-      type: formData.type,
-      prerequisites: formData.prerequisites,
-    };
+    try {
+      const courseData = {
+        code: formData.code,
+        name: formData.name,
+        units: parseInt(formData.units),
+        course_type: courseTypeMap[formData.type],
+        prerequisites: formData.prerequisites,
+      };
 
-    if (editingCourse) {
-      setCourses(courses.map((c) => (c.id === editingCourse.id ? courseData : c)));
-    } else {
-      setCourses([...courses, courseData]);
+      if (editingCourse) {
+        await updateCourse(editingCourse.id, courseData);
+      } else {
+        await createCourse(courseData as any);
+      }
+
+      setShowModal(false);
+      await loadCourses();
+    } catch (err) {
+      alert("خطا در ذخیره درس");
+      console.error(err);
+    } finally {
+      setSubmitting(false);
     }
-
-    setShowModal(false);
   };
 
-  const togglePrerequisite = (courseCode: string) => {
-    if (formData.prerequisites.includes(courseCode)) {
+  const togglePrerequisite = (courseId: number) => {
+    if (formData.prerequisites.includes(courseId)) {
       setFormData({
         ...formData,
-        prerequisites: formData.prerequisites.filter((c) => c !== courseCode),
+        prerequisites: formData.prerequisites.filter((id) => id !== courseId),
       });
     } else {
       setFormData({
         ...formData,
-        prerequisites: [...formData.prerequisites, courseCode],
+        prerequisites: [...formData.prerequisites, courseId],
       });
     }
   };
+
+  if (loading) {
+    return (
+      <div className="page">
+        <div className="loading">در حال بارگذاری...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="page">
+        <div className="error-message">
+          {error}
+          <button className="btn btn--primary" onClick={loadCourses}>
+            تلاش مجدد
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page">
@@ -129,65 +203,84 @@ export default function CoursesPage() {
         </button>
       </div>
 
-      <div className="table-container">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>کد درس</th>
-              <th>نام درس</th>
-              <th>واحد</th>
-              <th>نوع</th>
-              <th>پیش‌نیاز</th>
-              <th>عملیات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {courses.map((course) => (
-              <tr key={course.id}>
-                <td>{course.code}</td>
-                <td>{course.name}</td>
-                <td>{course.units}</td>
-                <td>
-                  <span className={`badge badge--${course.type === "نظری" ? "blue" : course.type === "عملی" ? "green" : course.type === "عمومی" ? "purple" : "orange"}`}>
-                    {course.type}
-                  </span>
-                </td>
-                <td>
-                  {course.prerequisites.length > 0 ? (
-                    <div className="prereq-list">
-                      {course.prerequisites.map((prereq, idx) => (
-                        <span key={idx} className="prereq-badge">
-                          {prereq}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-muted">ندارد</span>
-                  )}
-                </td>
-                <td>
-                  <div className="table-actions">
-                    <button
-                      className="btn-icon btn-icon--edit"
-                      onClick={() => handleEdit(course)}
-                      title="ویرایش"
-                    >
-                      <EditIcon />
-                    </button>
-                    <button
-                      className="btn-icon btn-icon--delete"
-                      onClick={() => handleDelete(course.id)}
-                      title="حذف"
-                    >
-                      <DeleteIcon />
-                    </button>
-                  </div>
-                </td>
+      {courses.length === 0 ? (
+        <div className="empty-state">
+          <p>هیچ درسی تعریف نشده است</p>
+          <button className="btn btn--primary" onClick={handleAdd}>
+            افزودن اولین درس
+          </button>
+        </div>
+      ) : (
+        <div className="table-container">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>کد درس</th>
+                <th>نام درس</th>
+                <th>واحد</th>
+                <th>نوع</th>
+                <th>پیش‌نیاز</th>
+                <th>عملیات</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {courses.map((course) => (
+                <tr key={course.id}>
+                  <td>{course.code}</td>
+                  <td>{course.name}</td>
+                  <td>{course.units}</td>
+                  <td>
+                    <span
+                      className={`badge badge--${
+                        course.type === "نظری"
+                          ? "blue"
+                          : course.type === "عملی"
+                          ? "green"
+                          : course.type === "عمومی"
+                          ? "purple"
+                          : "orange"
+                      }`}
+                    >
+                      {course.type}
+                    </span>
+                  </td>
+                  <td>
+                    {course.prerequisiteNames && course.prerequisiteNames.length > 0 ? (
+                      <div className="prereq-list">
+                        {course.prerequisiteNames.map((prereq, idx) => (
+                          <span key={idx} className="prereq-badge">
+                            {prereq}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted">ندارد</span>
+                    )}
+                  </td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        className="btn-icon btn-icon--edit"
+                        onClick={() => handleEdit(course)}
+                        title="ویرایش"
+                      >
+                        <EditIcon />
+                      </button>
+                      <button
+                        className="btn-icon btn-icon--delete"
+                        onClick={() => handleDelete(course.id)}
+                        title="حذف"
+                      >
+                        <DeleteIcon />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
@@ -199,6 +292,7 @@ export default function CoursesPage() {
               <button
                 className="modal-close"
                 onClick={() => setShowModal(false)}
+                disabled={submitting}
               >
                 ✕
               </button>
@@ -217,6 +311,7 @@ export default function CoursesPage() {
                       setFormData({ ...formData, code: e.target.value })
                     }
                     required
+                    disabled={submitting}
                   />
                 </div>
 
@@ -232,6 +327,7 @@ export default function CoursesPage() {
                       setFormData({ ...formData, units: e.target.value })
                     }
                     required
+                    disabled={submitting}
                   />
                 </div>
 
@@ -246,6 +342,7 @@ export default function CoursesPage() {
                       setFormData({ ...formData, name: e.target.value })
                     }
                     required
+                    disabled={submitting}
                   />
                 </div>
 
@@ -255,9 +352,13 @@ export default function CoursesPage() {
                     className="form-input"
                     value={formData.type}
                     onChange={(e) =>
-                      setFormData({ ...formData, type: e.target.value as CourseType })
+                      setFormData({
+                        ...formData,
+                        type: e.target.value as CourseType,
+                      })
                     }
                     required
+                    disabled={submitting}
                   >
                     <option value="نظری">نظری</option>
                     <option value="عملی">عملی</option>
@@ -268,22 +369,27 @@ export default function CoursesPage() {
 
                 <div className="form-group form-group--full">
                   <label className="form-label">پیش‌نیازها (اختیاری)</label>
-                  <div className="checkbox-group">
-                    {courses
-                      .filter((c) => c.id !== editingCourse?.id)
-                      .map((course) => (
-                        <label key={course.id} className="checkbox-item">
-                          <input
-                            type="checkbox"
-                            checked={formData.prerequisites.includes(course.code)}
-                            onChange={() => togglePrerequisite(course.code)}
-                          />
-                          <span>
-                            {course.code} - {course.name}
-                          </span>
-                        </label>
-                      ))}
-                  </div>
+                  {courses.filter((c) => c.id !== editingCourse?.id).length > 0 ? (
+                    <div className="checkbox-group">
+                      {courses
+                        .filter((c) => c.id !== editingCourse?.id)
+                        .map((course) => (
+                          <label key={course.id} className="checkbox-item">
+                            <input
+                              type="checkbox"
+                              checked={formData.prerequisites.includes(course.id)}
+                              onChange={() => togglePrerequisite(course.id)}
+                              disabled={submitting}
+                            />
+                            <span>
+                              {course.code} - {course.name}
+                            </span>
+                          </label>
+                        ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted">هنوز درس دیگری تعریف نشده است</p>
+                  )}
                 </div>
               </div>
 
@@ -292,11 +398,21 @@ export default function CoursesPage() {
                   type="button"
                   className="btn btn--secondary"
                   onClick={() => setShowModal(false)}
+                  disabled={submitting}
                 >
                   انصراف
                 </button>
-                <button type="submit" className="btn btn--primary">
-                  {editingCourse ? "ذخیره تغییرات" : "افزودن درس"}
+                <button 
+                  type="submit" 
+                  className="btn btn--primary"
+                  disabled={submitting}
+                >
+                  {submitting 
+                    ? "در حال ذخیره..." 
+                    : editingCourse 
+                    ? "ذخیره تغییرات" 
+                    : "افزودن درس"
+                  }
                 </button>
               </div>
             </form>
@@ -306,4 +422,3 @@ export default function CoursesPage() {
     </div>
   );
 }
-

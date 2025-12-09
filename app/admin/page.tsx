@@ -1,4 +1,50 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { getCourses, getClasses, getClassStats } from "@lib/api";
+
 export default function AdminDashboard() {
+  const [stats, setStats] = useState({
+    totalCourses: 0,
+    totalClasses: 0,
+    totalStudents: 0,
+    fullClasses: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    try {
+      // بارگذاری همزمان داده‌ها
+      const [courses, classes, classStats] = await Promise.all([
+        getCourses(),
+        getClasses(),
+        getClassStats(),
+      ]);
+
+      setStats({
+        totalCourses: courses.length,
+        totalClasses: classes.length,
+        totalStudents: classStats.total_enrolled,
+        fullClasses: classStats.full_classes,
+      });
+    } catch (err) {
+      console.error("خطا در دریافت آمار:", err);
+      // در صورت خطا، از مقادیر پیش‌فرض استفاده می‌کنیم
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // تبدیل اعداد انگلیسی به فارسی
+  const toPersianNumber = (num: number) => {
+    const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+    return num.toString().replace(/\d/g, (digit) => persianDigits[parseInt(digit)]);
+  };
+
   return (
     <div className="dashboard">
       <h2 className="dashboard__title">خوش آمدید</h2>
@@ -25,7 +71,9 @@ export default function AdminDashboard() {
           </div>
           <div className="stat-card__content">
             <h3 className="stat-card__title">تعداد دروس</h3>
-            <p className="stat-card__value">۴۸</p>
+            <p className="stat-card__value">
+              {loading ? "..." : toPersianNumber(stats.totalCourses)}
+            </p>
           </div>
         </div>
 
@@ -49,7 +97,9 @@ export default function AdminDashboard() {
           </div>
           <div className="stat-card__content">
             <h3 className="stat-card__title">تعداد کلاس‌ها</h3>
-            <p className="stat-card__value">۲۴</p>
+            <p className="stat-card__value">
+              {loading ? "..." : toPersianNumber(stats.totalClasses)}
+            </p>
           </div>
         </div>
 
@@ -72,8 +122,10 @@ export default function AdminDashboard() {
             </svg>
           </div>
           <div className="stat-card__content">
-            <h3 className="stat-card__title">دانشجویان فعال</h3>
-            <p className="stat-card__value">۱۵۶</p>
+            <h3 className="stat-card__title">دانشجویان ثبت‌نام‌شده</h3>
+            <p className="stat-card__value">
+              {loading ? "..." : toPersianNumber(stats.totalStudents)}
+            </p>
           </div>
         </div>
 
@@ -96,11 +148,12 @@ export default function AdminDashboard() {
           </div>
           <div className="stat-card__content">
             <h3 className="stat-card__title">کلاس‌های پر ظرفیت</h3>
-            <p className="stat-card__value">۵</p>
+            <p className="stat-card__value">
+              {loading ? "..." : toPersianNumber(stats.fullClasses)}
+            </p>
           </div>
         </div>
       </div>
     </div>
   );
 }
-

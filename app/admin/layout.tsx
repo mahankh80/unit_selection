@@ -7,6 +7,7 @@ import { DashboardIcon } from "@components/icons/Dashboard";
 import { BookIcon } from "@components/icons/Book";
 import { LinkIcon } from "@components/icons/Link";
 import { SettingsIcon } from "@components/icons/Settings";
+import { useAuth } from "@lib/AuthContext";
 
 const menuItems = [
   { href: "/admin", label: "داشبورد", icon: <DashboardIcon /> },
@@ -17,13 +18,18 @@ const menuItems = [
 
 export default function AdminLayout({ children }: PropsWithChildren) {
   const pathname = usePathname();
+  const { logout, user } = useAuth();
 
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <div className="admin-sidebar__header">
           <h2 className="admin-sidebar__title">پنل مدیریت</h2>
-          <p className="admin-sidebar__subtitle">مدیر گروه</p>
+          <p className="admin-sidebar__subtitle">
+            {user?.first_name && user?.last_name
+              ? `${user.first_name} ${user.last_name}`
+              : user?.username || "مدیر گروه"}
+          </p>
         </div>
 
         <nav className="admin-nav">
@@ -49,9 +55,13 @@ export default function AdminLayout({ children }: PropsWithChildren) {
         </nav>
 
         <div className="admin-sidebar__footer">
-          <Link href="/auth/login" className="admin-sidebar__logout">
+          <button
+            onClick={logout}
+            className="admin-sidebar__logout"
+            type="button"
+          >
             خروج از سیستم
-          </Link>
+          </button>
         </div>
       </aside>
 
