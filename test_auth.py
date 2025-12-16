@@ -1,6 +1,6 @@
 """
-اسکریپت تست Authentication
-برای اجرا: python test_auth.py
+Authentication Test Script
+To run: python test_auth.py
 """
 
 import requests
@@ -10,7 +10,7 @@ BASE_URL = "http://localhost:8000"
 
 def print_response(response, title):
     print(f"\n{'='*60}")
-    print(f"📌 {title}")
+    print(f"{title}")
     print(f"{'='*60}")
     print(f"Status Code: {response.status_code}")
     try:
@@ -20,10 +20,10 @@ def print_response(response, title):
 
 
 def test_authentication():
-    print("\n🚀 شروع تست Authentication...")
+    print("\nStarting Authentication test...")
     
-    # 1. تست Login با اطلاعات نادرست
-    print("\n1️⃣ تست Login با رمز اشتباه...")
+    # 1. Test Login with wrong credentials
+    print("\n1. Test Login with wrong password...")
     response = requests.post(
         f"{BASE_URL}/api/auth/login/",
         json={
@@ -31,19 +31,19 @@ def test_authentication():
             "password": "wrongpassword"
         }
     )
-    print_response(response, "Login با رمز اشتباه (باید 401 باشه)")
+    print_response(response, "Login with wrong password (should be 401)")
     
-    # 2. تست Login با اطلاعات خالی
-    print("\n2️⃣ تست Login بدون اطلاعات...")
+    # 2. Test Login with empty data
+    print("\n2. Test Login without data...")
     response = requests.post(
         f"{BASE_URL}/api/auth/login/",
         json={}
     )
-    print_response(response, "Login بدون اطلاعات (باید 400 باشه)")
+    print_response(response, "Login without data (should be 400)")
     
-    # 3. تست Login موفق
-    print("\n3️⃣ تست Login موفق...")
-    print("⚠️  نام کاربری و رمز عبور admin خود را وارد کنید:")
+    # 3. Test successful Login
+    print("\n3. Test successful Login...")
+    print("Enter your admin username and password:")
     username = input("Username: ").strip() or "admin"
     password = input("Password: ").strip() or "admin123"
     
@@ -54,50 +54,50 @@ def test_authentication():
             "password": password
         }
     )
-    print_response(response, "Login موفق (باید 200 و token داشته باشه)")
+    print_response(response, "Successful Login (should be 200 and have token)")
     
     if response.status_code != 200:
-        print("\n❌ Login ناموفق بود! لطفاً:")
-        print("   1. مطمئن شوید سرور Django در حال اجراست (python manage.py runserver)")
-        print("   2. یک superuser ساخته باشید (python manage.py createsuperuser)")
-        print("   3. نام کاربری و رمز عبور را درست وارد کرده باشید")
+        print("\nLogin failed! Please:")
+        print("   1. Make sure Django server is running (python manage.py runserver)")
+        print("   2. Create a superuser (python manage.py createsuperuser)")
+        print("   3. Enter correct username and password")
         return
     
-    # دریافت token
+    # Get token
     token = response.json().get("token")
-    print(f"\n✅ Token دریافت شد: {token[:20]}...")
+    print(f"\nToken received: {token[:20]}...")
     
-    # 4. تست Current User
-    print("\n4️⃣ تست دریافت اطلاعات کاربر...")
+    # 4. Test Current User
+    print("\n4. Test get user information...")
     response = requests.get(
         f"{BASE_URL}/api/auth/me/",
         headers={"Authorization": f"Token {token}"}
     )
-    print_response(response, "اطلاعات کاربر (باید 200 باشه)")
+    print_response(response, "User information (should be 200)")
     
-    # 5. تست دسترسی بدون Token
-    print("\n5️⃣ تست دسترسی بدون Token...")
+    # 5. Test access without Token
+    print("\n5. Test access without Token...")
     response = requests.get(f"{BASE_URL}/api/auth/me/")
-    print_response(response, "دسترسی بدون Token (باید 401 باشه)")
+    print_response(response, "Access without Token (should be 401)")
     
-    # 6. تست Logout
-    print("\n6️⃣ تست Logout...")
+    # 6. Test Logout
+    print("\n6. Test Logout...")
     response = requests.post(
         f"{BASE_URL}/api/auth/logout/",
         headers={"Authorization": f"Token {token}"}
     )
-    print_response(response, "Logout (باید 200 باشه)")
+    print_response(response, "Logout (should be 200)")
     
-    # 7. تست دسترسی با Token منقضی شده
-    print("\n7️⃣ تست دسترسی با Token منقضی شده...")
+    # 7. Test access with expired Token
+    print("\n7. Test access with expired Token...")
     response = requests.get(
         f"{BASE_URL}/api/auth/me/",
         headers={"Authorization": f"Token {token}"}
     )
-    print_response(response, "دسترسی با Token منقضی (باید 401 باشه)")
+    print_response(response, "Access with expired Token (should be 401)")
     
     print("\n" + "="*60)
-    print("✅ تست‌ها به پایان رسید!")
+    print("Tests completed!")
     print("="*60)
 
 
@@ -105,12 +105,13 @@ if __name__ == "__main__":
     try:
         test_authentication()
     except requests.exceptions.ConnectionError:
-        print("\n❌ خطا: نمی‌توان به سرور متصل شد!")
-        print("لطفاً مطمئن شوید سرور Django در حال اجراست:")
+        print("\nERROR: Cannot connect to server!")
+        print("Please make sure Django server is running:")
         print("   cd es")
         print("   python manage.py runserver")
     except KeyboardInterrupt:
-        print("\n\n⛔ تست توسط کاربر متوقف شد.")
+        print("\n\nTest stopped by user.")
     except Exception as e:
-        print(f"\n❌ خطای غیرمنتظره: {e}")
+        print(f"\nUnexpected error: {e}")
+
 

@@ -223,3 +223,4 @@ python manage.py migrate
 
 می‌توانید به مرحله بعد (اتصال Frontend به Backend) بروید! 🚀
 
+

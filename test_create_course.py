@@ -1,5 +1,5 @@
 """
-تست ایجاد درس جدید بدون فیلدهای قدیمی
+Test creating new course without old fields
 """
 
 import requests
@@ -14,22 +14,22 @@ login_response = requests.post(
 )
 
 if login_response.status_code != 200:
-    print("❌ Login ناموفق!")
+    print("Login failed!")
     exit(1)
 
 token = login_response.json()["token"]
 headers = {"Authorization": f"Token {token}"}
 
-# ایجاد درس جدید (بدون فیلدهای قدیمی)
+# Create new course (without old fields)
 course_data = {
-    "name": "مبانی برنامه‌نویسی",
+    "name": "Programming Fundamentals",
     "code": "100",
     "units": 3,
     "course_type": "THEORETICAL",
     "prerequisites": []
 }
 
-print("📤 ارسال درخواست ایجاد درس...")
+print("Sending course creation request...")
 print(f"Data: {json.dumps(course_data, ensure_ascii=False, indent=2)}")
 
 response = requests.post(
@@ -38,12 +38,13 @@ response = requests.post(
     json=course_data
 )
 
-print(f"\n📥 Status Code: {response.status_code}")
+print(f"\nStatus Code: {response.status_code}")
 
 if response.status_code == 201:
-    print("✅ درس با موفقیت ایجاد شد!")
+    print("Course created successfully!")
     print(f"Response:\n{json.dumps(response.json(), ensure_ascii=False, indent=2)}")
 else:
-    print("❌ خطا در ایجاد درس!")
+    print("Error creating course!")
     print(f"Response: {response.text}")
+
 

@@ -1,5 +1,5 @@
 """
-تست سریع Authentication (بدون تعامل با کاربر)
+Quick Authentication Test (without user interaction)
 """
 
 import requests
@@ -10,10 +10,10 @@ USERNAME = "admin"
 PASSWORD = "admin123"
 
 def test():
-    print("🚀 تست Authentication شروع شد...\n")
+    print("Starting Authentication test...\n")
     
-    # 1. تست Login
-    print("1️⃣ تست Login...")
+    # 1. Test Login
+    print("1. Test Login...")
     try:
         response = requests.post(
             f"{BASE_URL}/api/auth/login/",
@@ -28,12 +28,12 @@ def test():
             token = data.get("token")
             user = data.get("user", {})
             
-            print(f"   ✅ Login موفق!")
+            print(f"   Login successful!")
             print(f"   Token: {token[:20]}...")
             print(f"   User: {user.get('username')} ({user.get('type')})")
             
-            # 2. تست Current User
-            print("\n2️⃣ تست Current User...")
+            # 2. Test Current User
+            print("\n2. Test Current User...")
             response2 = requests.get(
                 f"{BASE_URL}/api/auth/me/",
                 headers={"Authorization": f"Token {token}"},
@@ -42,13 +42,13 @@ def test():
             print(f"   Status: {response2.status_code}")
             
             if response2.status_code == 200:
-                print(f"   ✅ Current User کار می‌کنه!")
+                print(f"   Current User is working!")
                 print(f"   Data: {json.dumps(response2.json(), ensure_ascii=False, indent=2)}")
             else:
-                print(f"   ❌ خطا: {response2.text}")
+                print(f"   Error: {response2.text}")
             
-            # 3. تست Logout
-            print("\n3️⃣ تست Logout...")
+            # 3. Test Logout
+            print("\n3. Test Logout...")
             response3 = requests.post(
                 f"{BASE_URL}/api/auth/logout/",
                 headers={"Authorization": f"Token {token}"},
@@ -57,13 +57,13 @@ def test():
             print(f"   Status: {response3.status_code}")
             
             if response3.status_code == 200:
-                print(f"   ✅ Logout موفق!")
+                print(f"   Logout successful!")
                 print(f"   Message: {response3.json().get('message')}")
             else:
-                print(f"   ❌ خطا: {response3.text}")
+                print(f"   Error: {response3.text}")
             
-            # 4. تست دسترسی با Token منقضی شده
-            print("\n4️⃣ تست Token منقضی شده...")
+            # 4. Test access with expired Token
+            print("\n4. Test expired Token...")
             response4 = requests.get(
                 f"{BASE_URL}/api/auth/me/",
                 headers={"Authorization": f"Token {token}"},
@@ -72,28 +72,29 @@ def test():
             print(f"   Status: {response4.status_code}")
             
             if response4.status_code == 401:
-                print(f"   ✅ Token منقضی شده صحیح شناسایی شد!")
+                print(f"   Expired token correctly identified!")
             else:
-                print(f"   ⚠️  انتظار 401 داشتیم ولی {response4.status_code} گرفتیم")
+                print(f"   Expected 401 but got {response4.status_code}")
             
             print("\n" + "="*60)
-            print("✅ تمام تست‌ها با موفقیت انجام شد!")
+            print("All tests completed successfully!")
             print("="*60)
             
         elif response.status_code == 401:
-            print(f"   ❌ Login ناموفق - username یا password اشتباهه")
+            print(f"   Login failed - username or password is incorrect")
             print(f"   Response: {response.json()}")
         else:
-            print(f"   ❌ خطا: {response.status_code}")
+            print(f"   Error: {response.status_code}")
             print(f"   Response: {response.text}")
             
     except requests.exceptions.ConnectionError:
-        print("   ❌ نمی‌توان به سرور متصل شد!")
-        print("   مطمئن شوید سرور Django در حال اجراست:")
+        print("   Cannot connect to server!")
+        print("   Make sure Django server is running:")
         print("   python manage.py runserver")
     except Exception as e:
-        print(f"   ❌ خطا: {e}")
+        print(f"   Error: {e}")
 
 if __name__ == "__main__":
     test()
+
 
