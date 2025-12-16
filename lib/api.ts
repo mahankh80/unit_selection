@@ -12,14 +12,16 @@ export interface LoginRequest {
 export interface User {
   id: number;
   username: string;
-  type: "admin" | "student";
+  type: "admin" | "student" | "instructor";
   is_staff: boolean;
   first_name: string;
   last_name: string;
   email: string;
   student_id?: string;
+  instructor_code?: string;
   major?: string;
   entry_year?: number;
+  department?: string;
 }
 
 export interface LoginResponse {
@@ -137,6 +139,37 @@ export async function studentLogin(
   credentials: StudentLoginRequest
 ): Promise<LoginResponse> {
   const response = await fetch(`${API_BASE_URL}/api/auth/student-login/`, {
+    method: "POST",
+    headers: getHeaders(false),
+    body: JSON.stringify(credentials),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.error || "خطا در ورود به سیستم");
+  }
+
+  const data: LoginResponse = await response.json();
+  
+  // ذخیره token و اطلاعات کاربر
+  setToken(data.token);
+  setUser(data.user);
+
+  return data;
+}
+
+/**
+ * API: Instructor Login
+ */
+export interface InstructorLoginRequest {
+  instructor_code: string;
+  password: string;
+}
+
+export async function instructorLogin(
+  credentials: InstructorLoginRequest
+): Promise<LoginResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/instructor-login/`, {
     method: "POST",
     headers: getHeaders(false),
     body: JSON.stringify(credentials),

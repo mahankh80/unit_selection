@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { TextField } from "@components/form/TextField";
 import { PasswordField } from "@components/form/PasswordField";
 import { PrimaryButton } from "@components/ui/PrimaryButton";
-import { login, studentLogin } from "@lib/api";
+import { login, studentLogin, instructorLogin } from "@lib/api";
 
-type UserType = "student" | "admin";
+type UserType = "student" | "admin" | "instructor";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -51,8 +51,30 @@ export default function LoginPage() {
         // کمی صبر کن تا AuthContext update بشه و localStorage ذخیره بشه
         await new Promise((resolve) => setTimeout(resolve, 200));
         
-        // ریدایرکت به پنل دانشجو (بعداً ایجاد می‌شود)
+        // ریدایرکت به پنل دانشجو
         window.location.href = "/student";
+      } else if (userType === "instructor") {
+        // ورود استاد
+        response = await instructorLogin({
+          instructor_code: studentId,
+          password: password,
+        });
+
+        // بررسی نوع کاربر
+        if (response.user.type !== "instructor") {
+          setError("شما استاد نیستید");
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Dispatch event برای refresh کردن AuthContext
+        window.dispatchEvent(new Event("auth:login"));
+        
+        // کمی صبر کن تا AuthContext update بشه و localStorage ذخیره بشه
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        
+        // ریدایرکت به پنل استاد
+        window.location.href = "/instructor";
       } else {
         // ورود Admin
         response = await login({
@@ -104,6 +126,19 @@ export default function LoginPage() {
 
         <input
           type="radio"
+          id="user-type-instructor"
+          name="userType"
+          value="instructor"
+          checked={userType === "instructor"}
+          onChange={() => setUserType("instructor")}
+          className="user-type-selector__input"
+        />
+        <label htmlFor="user-type-instructor" className="user-type-selector__label">
+          استاد
+        </label>
+
+        <input
+          type="radio"
           id="user-type-admin"
           name="userType"
           value="admin"
@@ -119,11 +154,17 @@ export default function LoginPage() {
       <form className="auth-form" onSubmit={handleSubmit} noValidate>
         <header className="auth-form__header">
           <h2 className="auth-form__title">
-            {userType === "student" ? "ورود دانشجو" : "ورود مدیر"}
+            {userType === "student" 
+              ? "ورود دانشجو" 
+              : userType === "instructor"
+              ? "ورود استاد"
+              : "ورود مدیر"}
           </h2>
           <p className="auth-form__subtitle">
             {userType === "student"
               ? "برای ورود به سامانه، شماره دانشجویی و رمز عبور خود را وارد کنید."
+              : userType === "instructor"
+              ? "برای ورود به پنل استاد، کد استادی و رمز عبور خود را وارد کنید."
               : "برای ورود به پنل مدیریت، نام کاربری و رمز عبور خود را وارد کنید."}
           </p>
         </header>
@@ -136,10 +177,17 @@ export default function LoginPage() {
           )}
 
           <TextField
-            label={userType === "student" ? "شماره دانشجویی" : "نام کاربری"}
+            label={
+              userType === "student" 
+                ? "شماره دانشجویی" 
+                : userType === "instructor"
+                ? "کد استادی"
+                : "نام کاربری"}
             placeholder={
               userType === "student"
                 ? "شماره دانشجویی خود را وارد کنید"
+                : userType === "instructor"
+                ? "کد استادی خود را وارد کنید"
                 : "نام کاربری خود را وارد کنید"
             }
             autoComplete="username"
