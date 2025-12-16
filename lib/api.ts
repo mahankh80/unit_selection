@@ -537,3 +537,20 @@ export async function updateStudentUnits(
   return await response.json();
 }
 
+/**
+ * API: دریافت لیست دانشجویان با واحدهای خارج از عرف
+ */
+export async function getStudentsWithCustomUnits(): Promise<Student[]> {
+  const response = await fetch(`${API_BASE_URL}/api/students/custom_units/`, {
+    method: "GET",
+    headers: getHeaders(true),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.error || "خطا در دریافت لیست دانشجویان");
+  }
+
+  return await response.json();
+}
+

@@ -1,49 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EditIcon } from "@components/icons/Edit";
-import { DeleteIcon } from "@components/icons/Delete";
-import { getStudentByStudentId, updateStudentUnits, type Student } from "@lib/api";
-
-type UnitException = {
-  id: number;
-  studentId: string;
-  studentName: string;
-  maxUnits: number;
-  reason: string;
-};
-
-const mockExceptions: UnitException[] = [
-  {
-    id: 1,
-    studentId: "401234567",
-    studentName: "علی احمدی",
-    maxUnits: 24,
-    reason: "دانشجوی ممتاز",
-  },
-  {
-    id: 2,
-    studentId: "401234890",
-    studentName: "زهرا محمدی",
-    maxUnits: 24,
-    reason: "معدل بالای 18",
-  },
-];
+import { 
+  getStudentByStudentId, 
+  updateStudentUnits, 
+  getStudentsWithCustomUnits,
+  type Student 
+} from "@lib/api";
 
 export default function SettingsPage() {
   const [generalSettings, setGeneralSettings] = useState({
     defaultMaxUnits: 20,
     minUnits: 12,
-  });
-
-  const [exceptions, setExceptions] = useState<UnitException[]>(mockExceptions);
-  const [showModal, setShowModal] = useState(false);
-  const [editingException, setEditingException] = useState<UnitException | null>(null);
-  const [formData, setFormData] = useState({
-    studentId: "",
-    studentName: "",
-    maxUnits: "24",
-    reason: "",
   });
 
   // بخش تنظیم واحدهای دانشجو
@@ -56,6 +25,26 @@ export default function SettingsPage() {
     maxUnits: "",
   });
   const [savingUnits, setSavingUnits] = useState(false);
+
+  // بخش لیست دانشجویان واحد خارج از عرف
+  const [customUnitsStudents, setCustomUnitsStudents] = useState<Student[]>([]);
+  const [loadingCustomUnits, setLoadingCustomUnits] = useState(true);
+
+  useEffect(() => {
+    loadCustomUnitsStudents();
+  }, []);
+
+  const loadCustomUnitsStudents = async () => {
+    try {
+      setLoadingCustomUnits(true);
+      const students = await getStudentsWithCustomUnits();
+      setCustomUnitsStudents(students);
+    } catch (err) {
+      console.error("خطا در دریافت لیست دانشجویان:", err);
+    } finally {
+      setLoadingCustomUnits(false);
+    }
+  };
 
   const handleSearchStudent = async () => {
     if (!searchStudentId.trim()) {
@@ -111,6 +100,8 @@ export default function SettingsPage() {
       // به‌روزرسانی اطلاعات دانشجو
       const updatedStudent = await getStudentByStudentId(foundStudent.student_id);
       setFoundStudent(updatedStudent);
+      // به‌روزرسانی لیست دانشجویان واحد خارج از عرف
+      await loadCustomUnitsStudents();
       alert("واحدهای دانشجو با موفقیت به‌روزرسانی شد");
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : "خطا در به‌روزرسانی واحدها");
@@ -119,54 +110,15 @@ export default function SettingsPage() {
     }
   };
 
-  const handleAddException = () => {
-    setEditingException(null);
-    setFormData({
-      studentId: "",
-      studentName: "",
-      maxUnits: "24",
-      reason: "",
+  const handleEditStudentFromList = async (student: Student) => {
+    setSearchStudentId(student.student_id);
+    setFoundStudent(student);
+    setStudentUnits({
+      minUnits: student.min_units.toString(),
+      maxUnits: student.max_units.toString(),
     });
-    setShowModal(true);
-  };
-
-  const handleEdit = (exception: UnitException) => {
-    setEditingException(exception);
-    setFormData({
-      studentId: exception.studentId,
-      studentName: exception.studentName,
-      maxUnits: exception.maxUnits.toString(),
-      reason: exception.reason,
-    });
-    setShowModal(true);
-  };
-
-  const handleDelete = (id: number) => {
-    if (confirm("آیا از حذف این استثنا اطمینان دارید؟")) {
-      setExceptions(exceptions.filter((e) => e.id !== id));
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const exceptionData: UnitException = {
-      id: editingException?.id || Date.now(),
-      studentId: formData.studentId,
-      studentName: formData.studentName,
-      maxUnits: parseInt(formData.maxUnits),
-      reason: formData.reason,
-    };
-
-    if (editingException) {
-      setExceptions(
-        exceptions.map((ex) => (ex.id === editingException.id ? exceptionData : ex))
-      );
-    } else {
-      setExceptions([...exceptions, exceptionData]);
-    }
-
-    setShowModal(false);
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSaveGeneralSettings = () => {
@@ -353,162 +305,78 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* استثنائات دانشجویان */}
+      {/* دانشجویان واحد خارج از عرف */}
       <div className="settings-section">
         <div className="settings-section__header">
-          <h2 className="settings-section__title">دانشجویان با سقف واحد بالاتر</h2>
-          <button className="btn btn--primary" onClick={handleAddException}>
-            افزودن دانشجو
+          <h2 className="settings-section__title">دانشجویان واحد خارج از عرف</h2>
+          <button 
+            className="btn btn--secondary" 
+            onClick={loadCustomUnitsStudents}
+            disabled={loadingCustomUnits}
+          >
+            {loadingCustomUnits ? "در حال بارگذاری..." : "به‌روزرسانی"}
           </button>
         </div>
 
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>شماره دانشجویی</th>
-                <th>نام دانشجو</th>
-                <th>حداکثر واحد</th>
-                <th>دلیل</th>
-                <th>عملیات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {exceptions.length > 0 ? (
-                exceptions.map((exception) => (
-                  <tr key={exception.id}>
-                    <td>{exception.studentId}</td>
-                    <td>{exception.studentName}</td>
-                    <td>
-                      <span className="badge badge--blue">{exception.maxUnits} واحد</span>
-                    </td>
-                    <td>{exception.reason}</td>
-                    <td>
-                      <div className="table-actions">
-                        <button
-                          className="btn-icon btn-icon--edit"
-                          onClick={() => handleEdit(exception)}
-                          title="ویرایش"
-                        >
-                          <EditIcon />
-                        </button>
-                        <button
-                          className="btn-icon btn-icon--delete"
-                          onClick={() => handleDelete(exception.id)}
-                          title="حذف"
-                        >
-                          <DeleteIcon />
-                        </button>
-                      </div>
+        {loadingCustomUnits ? (
+          <div className="settings-card" style={{ textAlign: "center", padding: "40px" }}>
+            <span className="text-muted">در حال بارگذاری...</span>
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>شماره دانشجویی</th>
+                  <th>نام دانشجو</th>
+                  <th>حداقل واحد</th>
+                  <th>حداکثر واحد</th>
+                  <th>عملیات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customUnitsStudents.length > 0 ? (
+                  customUnitsStudents.map((student) => (
+                    <tr key={student.id}>
+                      <td>{student.student_id}</td>
+                      <td>{student.full_name}</td>
+                      <td>
+                        <span className={`badge ${student.min_units !== 12 ? "badge--warning" : "badge--gray"}`}>
+                          {student.min_units} واحد
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${student.max_units !== 20 ? "badge--blue" : "badge--gray"}`}>
+                          {student.max_units} واحد
+                        </span>
+                      </td>
+                      <td>
+                        <div className="table-actions">
+                          <button
+                            className="btn-icon btn-icon--edit"
+                            onClick={() => handleEditStudentFromList(student)}
+                            title="ویرایش"
+                          >
+                            <EditIcon />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: "center", padding: "40px" }}>
+                      <span className="text-muted">
+                        هیچ دانشجویی با واحد خارج از عرف وجود ندارد.
+                      </span>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: "center", padding: "40px" }}>
-                    <span className="text-muted">
-                      هیچ استثنایی تعریف نشده است. برای افزودن دانشجو روی دکمه بالا کلیک کنید.
-                    </span>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Modal افزودن/ویرایش */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">
-                {editingException ? "ویرایش استثنا" : "افزودن دانشجوی جدید"}
-              </h3>
-              <button className="modal-close" onClick={() => setShowModal(false)}>
-                ✕
-              </button>
-            </div>
-
-            <form className="modal-form" onSubmit={handleSubmit}>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label className="form-label">شماره دانشجویی</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="مثال: 401234567"
-                    value={formData.studentId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, studentId: e.target.value })
-                    }
-                    required
-                    pattern="[0-9]{9}"
-                    title="شماره دانشجویی باید 9 رقم باشد"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">نام دانشجو</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="مثال: علی احمدی"
-                    value={formData.studentName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, studentName: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-
-                <div className="form-group form-group--full">
-                  <label className="form-label">حداکثر واحد مجاز</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    min="20"
-                    max="28"
-                    value={formData.maxUnits}
-                    onChange={(e) =>
-                      setFormData({ ...formData, maxUnits: e.target.value })
-                    }
-                    required
-                  />
-                  <span className="form-hint">معمولاً بین 20 تا 24 واحد</span>
-                </div>
-
-                <div className="form-group form-group--full">
-                  <label className="form-label">دلیل</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="مثال: دانشجوی ممتاز - معدل بالای 18"
-                    value={formData.reason}
-                    onChange={(e) =>
-                      setFormData({ ...formData, reason: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn btn--secondary"
-                  onClick={() => setShowModal(false)}
-                >
-                  انصراف
-                </button>
-                <button type="submit" className="btn btn--primary">
-                  {editingException ? "ذخیره تغییرات" : "افزودن دانشجو"}
-                </button>
-              </div>
-            </form>
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
