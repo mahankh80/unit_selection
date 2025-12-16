@@ -17,6 +17,9 @@ export interface User {
   first_name: string;
   last_name: string;
   email: string;
+  student_id?: string;
+  major?: string;
+  entry_year?: number;
 }
 
 export interface LoginResponse {
@@ -97,12 +100,43 @@ function getHeaders(includeAuth: boolean = false): HeadersInit {
 }
 
 /**
- * API: Login
+ * API: Login (Admin)
  */
 export async function login(
   credentials: LoginRequest
 ): Promise<LoginResponse> {
   const response = await fetch(`${API_BASE_URL}/api/auth/login/`, {
+    method: "POST",
+    headers: getHeaders(false),
+    body: JSON.stringify(credentials),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.error || "خطا در ورود به سیستم");
+  }
+
+  const data: LoginResponse = await response.json();
+  
+  // ذخیره token و اطلاعات کاربر
+  setToken(data.token);
+  setUser(data.user);
+
+  return data;
+}
+
+/**
+ * API: Student Login
+ */
+export interface StudentLoginRequest {
+  student_id: string;
+  password: string;
+}
+
+export async function studentLogin(
+  credentials: StudentLoginRequest
+): Promise<LoginResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/student-login/`, {
     method: "POST",
     headers: getHeaders(false),
     body: JSON.stringify(credentials),

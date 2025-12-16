@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { TextField } from "@components/form/TextField";
 import { PasswordField } from "@components/form/PasswordField";
 import { PrimaryButton } from "@components/ui/PrimaryButton";
-import { login } from "@lib/api";
+import { login, studentLogin } from "@lib/api";
 
 type UserType = "student" | "admin";
 
@@ -26,36 +26,56 @@ export default function LoginPage() {
       return;
     }
 
-    // فعلاً فقط برای Admin
-    if (userType !== "admin") {
-      setError("ورود دانشجو هنوز پیاده‌سازی نشده است");
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      // فراخوانی API
-      const response = await login({
-        username: studentId,
-        password: password,
-      });
+      let response;
+      
+      if (userType === "student") {
+        // ورود دانشجو
+        response = await studentLogin({
+          student_id: studentId,
+          password: password,
+        });
 
-      // بررسی نوع کاربر
-      if (response.user.type !== "admin" || !response.user.is_staff) {
-        setError("شما دسترسی مدیریت ندارید");
-        setIsSubmitting(false);
-        return;
+        // بررسی نوع کاربر
+        if (response.user.type !== "student") {
+          setError("شما دانشجو نیستید");
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Dispatch event برای refresh کردن AuthContext
+        window.dispatchEvent(new Event("auth:login"));
+        
+        // کمی صبر کن تا AuthContext update بشه و localStorage ذخیره بشه
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        
+        // ریدایرکت به پنل دانشجو (بعداً ایجاد می‌شود)
+        window.location.href = "/student";
+      } else {
+        // ورود Admin
+        response = await login({
+          username: studentId,
+          password: password,
+        });
+
+        // بررسی نوع کاربر
+        if (response.user.type !== "admin" || !response.user.is_staff) {
+          setError("شما دسترسی مدیریت ندارید");
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Dispatch event برای refresh کردن AuthContext
+        window.dispatchEvent(new Event("auth:login"));
+        
+        // کمی صبر کن تا AuthContext update بشه و localStorage ذخیره بشه
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        
+        // ریدایرکت به پنل ادمین
+        window.location.href = "/admin";
       }
-
-      // Dispatch event برای refresh کردن AuthContext
-      window.dispatchEvent(new Event("auth:login"));
-      
-      // کمی صبر کن تا AuthContext update بشه و localStorage ذخیره بشه
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      
-      // ریدایرکت به پنل ادمین - استفاده از window.location برای اطمینان از refresh
-      window.location.href = "/admin";
     } catch (err) {
       setIsSubmitting(false);
       if (err instanceof Error) {
