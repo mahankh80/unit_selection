@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getCourses, getInstructors, getClasses, createClass, type Course, type Instructor } from "@lib/api";
 import { useRouter } from "next/navigation";
 
@@ -30,6 +30,10 @@ export default function AutoCreateClassesPage() {
   useState(() => {
     loadData();
   });
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const loadData = async () => {
     try {
