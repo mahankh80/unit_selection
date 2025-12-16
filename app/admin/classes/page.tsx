@@ -236,11 +236,19 @@ export default function ClassesPage() {
         formData.examMinute || "00"
       );
 
+      // اطمینان حاصل کن که course_id یک عدد معتبر است
+      const courseId = parseInt(formData.courseId, 10);
+      if (isNaN(courseId) || courseId <= 0) {
+        alert("لطفاً یک درس معتبر انتخاب کنید");
+        setSubmitting(false);
+        return;
+      }
+
       const classData = {
-        course_id: parseInt(formData.courseId),
+        course_id: courseId,
         instructor: formData.instructor,
         class_number: formData.classNumber,
-        capacity: parseInt(formData.capacity),
+        capacity: parseInt(formData.capacity, 10),
         class_time: classTime,
         exam_time: examTime,
         semester: "1404-1", // ترم جاری
@@ -255,8 +263,9 @@ export default function ClassesPage() {
       setShowModal(false);
       await loadData();
     } catch (err) {
-      alert("خطا در ذخیره کلاس");
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : "خطا در ذخیره کلاس";
+      alert(errorMessage);
+      console.error("Error saving class:", err);
     } finally {
       setSubmitting(false);
     }
@@ -401,7 +410,7 @@ export default function ClassesPage() {
                       setFormData({ ...formData, courseId: e.target.value })
                     }
                     required
-                    disabled={submitting || !!editingClass}
+                    disabled={submitting}
                   >
                     <option value="">درس را انتخاب کنید</option>
                     {courses.map((course) => (

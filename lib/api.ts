@@ -358,7 +358,9 @@ export async function updateClass(id: number, classData: Partial<CourseOffering>
   });
 
   if (!response.ok) {
-    throw new Error("خطا در ویرایش کلاس");
+    const errorData = await response.json().catch(() => ({}));
+    console.error("Error updating class:", errorData);
+    throw new Error(errorData.non_field_errors?.[0] || errorData.detail || "خطا در ویرایش کلاس");
   }
 
   return await response.json();
