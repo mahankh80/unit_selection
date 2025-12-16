@@ -162,43 +162,44 @@ export default function StudentPage() {
           <div className="student-classes__list">
             {filteredClasses.map((cls) => (
               <div key={cls.id} className="student-class-card">
-                <div className="student-class-card__left">
-                  <div className="student-class-card__course-info">
-                    <span className="student-class-card__code">
-                      {cls.course_code}
-                    </span>
-                    <h3 className="student-class-card__name">
-                      {cls.course_name}
-                    </h3>
-                  </div>
-                  <div className="student-class-card__meta">
-                    <span className="student-class-card__instructor">
-                      {cls.instructor}
-                    </span>
-                    <span className="student-class-card__separator">•</span>
-                    <span className="student-class-card__class-number">
-                      کلاس {cls.class_number}
-                    </span>
-                    <span className="student-class-card__separator">•</span>
-                    <span className="student-class-card__units">
-                      {cls.course_units} واحد
-                    </span>
-                  </div>
+                <div className="student-class-card__course">
+                  <span className="student-class-card__code">
+                    {cls.course_code}
+                  </span>
+                  <h3 className="student-class-card__name">
+                    {cls.course_name}
+                  </h3>
                 </div>
-                <div className="student-class-card__right">
-                  <div className="student-class-card__schedule">
-                    <span className="student-class-card__time">{cls.class_time}</span>
-                    <span className="student-class-card__exam">{cls.exam_time}</span>
-                  </div>
-                  <div className="student-class-card__badge">
-                    {cls.is_full ? (
-                      <span className="student-class-card__badge--full">پر</span>
-                    ) : (
-                      <span className="student-class-card__badge--available">
-                        {cls.capacity - cls.enrolled_count} خالی
-                      </span>
-                    )}
-                  </div>
+                <div className="student-class-card__info">
+                  <span className="student-class-card__info-item">
+                    <span className="student-class-card__info-label">استاد:</span>
+                    <span className="student-class-card__info-value">{cls.instructor}</span>
+                  </span>
+                  <span className="student-class-card__info-item">
+                    <span className="student-class-card__info-label">تعداد واحد:</span>
+                    <span className="student-class-card__info-value">{cls.course_units}</span>
+                  </span>
+                  <span className="student-class-card__info-item">
+                    <span className="student-class-card__info-label">شماره کلاس:</span>
+                    <span className="student-class-card__info-value">{cls.class_number}</span>
+                  </span>
+                  <span className="student-class-card__info-item">
+                    <span className="student-class-card__info-label">زمان برگزاری:</span>
+                    <span className="student-class-card__info-value">{cls.class_time}</span>
+                  </span>
+                  <span className="student-class-card__info-item">
+                    <span className="student-class-card__info-label">امتحان:</span>
+                    <span className="student-class-card__info-value">{cls.exam_time}</span>
+                  </span>
+                </div>
+                <div className="student-class-card__badge">
+                  {cls.is_full ? (
+                    <span className="student-class-card__badge--full">پر</span>
+                  ) : (
+                    <span className="student-class-card__badge--available">
+                      {cls.capacity - cls.enrolled_count} خالی
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
