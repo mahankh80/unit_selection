@@ -447,3 +447,31 @@ export async function deleteClass(id: number): Promise<void> {
   }
 }
 
+// ============= Instructor APIs =============
+
+export interface Instructor {
+  id: number;
+  instructor_code: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  department?: string;
+  full_name: string;
+}
+
+/**
+ * API: دریافت لیست اساتید
+ */
+export async function getInstructors(): Promise<Instructor[]> {
+  const response = await fetch(`${API_BASE_URL}/api/instructors/`, {
+    method: "GET",
+    headers: getHeaders(true),
+  });
+
+  if (!response.ok) {
+    throw new Error("خطا در دریافت لیست اساتید");
+  }
+
+  return await response.json();
+}
+

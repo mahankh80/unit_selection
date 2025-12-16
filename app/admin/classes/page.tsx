@@ -9,8 +9,10 @@ import {
   createClass,
   updateClass,
   deleteClass,
+  getInstructors,
   type Course as APICourse,
   type CourseOffering,
+  type Instructor,
 } from "@lib/api";
 
 type Class = {
@@ -69,6 +71,7 @@ const formatExamTime = (date: string, hour: string, minute: string) => {
 export default function ClassesPage() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [courses, setCourses] = useState<APICourse[]>([]);
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -100,13 +103,15 @@ export default function ClassesPage() {
     setLoading(true);
     setError(null);
     try {
-      // بارگذاری همزمان دروس و کلاس‌ها
-      const [apiCourses, apiClasses] = await Promise.all([
+      // بارگذاری همزمان دروس، کلاس‌ها و اساتید
+      const [apiCourses, apiClasses, apiInstructors] = await Promise.all([
         getCourses(),
         getClasses(),
+        getInstructors(),
       ]);
 
       setCourses(apiCourses);
+      setInstructors(apiInstructors);
 
       // تبدیل داده‌های API به فرمت UI
       const uiClasses: Class[] = apiClasses.map((cls) => ({
@@ -422,18 +427,23 @@ export default function ClassesPage() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">نام استاد</label>
-                  <input
-                    type="text"
+                  <label className="form-label">انتخاب استاد</label>
+                  <select
                     className="form-input"
-                    placeholder="مثال: دکتر احمدی"
                     value={formData.instructor}
                     onChange={(e) =>
                       setFormData({ ...formData, instructor: e.target.value })
                     }
                     required
                     disabled={submitting}
-                  />
+                  >
+                    <option value="">استاد را انتخاب کنید</option>
+                    {instructors.map((instructor) => (
+                      <option key={instructor.id} value={instructor.full_name}>
+                        {instructor.full_name} ({instructor.instructor_code})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="form-group">
