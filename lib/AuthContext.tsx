@@ -62,13 +62,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // محافظت از صفحات admin - فقط بعد از اینکه loading تمام شد
+    // محافظت از صفحات - فقط بعد از اینکه loading تمام شد
     if (isLoading) return;
     
+    const token = getToken();
+    const savedUser = getUser();
+    
     if (pathname?.startsWith("/admin")) {
-      const token = getToken();
-      const savedUser = getUser();
-      
       // از localStorage مستقیماً چک کن (نه فقط state)
       if (!token || !savedUser) {
         router.push("/auth/login");
@@ -82,6 +82,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // اگر user state null هست ولی در localStorage هست، set کن
+      if (!user && savedUser) {
+        setUser(savedUser);
+      }
+    } else if (pathname?.startsWith("/student")) {
+      if (!token || !savedUser) {
+        router.push("/auth/login");
+        return;
+      }
+
+      // چک کن که student باشه
+      if (savedUser.type !== "student") {
+        router.push("/auth/login");
+        return;
+      }
+
+      if (!user && savedUser) {
+        setUser(savedUser);
+      }
+    } else if (pathname?.startsWith("/instructor")) {
+      if (!token || !savedUser) {
+        router.push("/auth/login");
+        return;
+      }
+
+      // چک کن که instructor باشه
+      if (savedUser.type !== "instructor") {
+        router.push("/auth/login");
+        return;
+      }
+
       if (!user && savedUser) {
         setUser(savedUser);
       }
