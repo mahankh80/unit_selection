@@ -7,6 +7,7 @@ import { DashboardIcon } from "@components/icons/Dashboard";
 import { BookIcon } from "@components/icons/Book";
 import { LinkIcon } from "@components/icons/Link";
 import { SettingsIcon } from "@components/icons/Settings";
+import { LogoutIcon } from "@components/icons/Logout";
 import { useAuth } from "@lib/AuthContext";
 
 const menuItems = [
@@ -60,7 +61,10 @@ export default function AdminLayout({ children }: PropsWithChildren) {
             className="admin-sidebar__logout"
             type="button"
           >
-            خروج از سیستم
+            <span className="admin-sidebar__logout-icon">
+              <LogoutIcon />
+            </span>
+            <span className="admin-sidebar__logout-text">خروج از سیستم</span>
           </button>
         </div>
       </aside>
