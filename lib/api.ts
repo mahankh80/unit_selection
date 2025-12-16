@@ -475,3 +475,65 @@ export async function getInstructors(): Promise<Instructor[]> {
   return await response.json();
 }
 
+// ============= Student APIs =============
+
+export interface Student {
+  id: number;
+  student_id: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  email: string;
+  phone?: string;
+  major?: string;
+  entry_year?: number;
+  min_units: number;
+  max_units: number;
+  is_active: boolean;
+}
+
+/**
+ * API: جستجوی دانشجو با شماره دانشجویی
+ */
+export async function getStudentByStudentId(studentId: string): Promise<Student> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/students/by_student_id/?student_id=${encodeURIComponent(studentId)}`,
+    {
+      method: "GET",
+      headers: getHeaders(true),
+    }
+  );
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.error || "خطا در دریافت اطلاعات دانشجو");
+  }
+
+  return await response.json();
+}
+
+/**
+ * API: به‌روزرسانی واحدهای دانشجو
+ */
+export async function updateStudentUnits(
+  studentId: number,
+  minUnits: number,
+  maxUnits: number
+): Promise<Student> {
+  const response = await fetch(`${API_BASE_URL}/api/students/${studentId}/`, {
+    method: "PATCH",
+    headers: getHeaders(true),
+    body: JSON.stringify({
+      min_units: minUnits,
+      max_units: maxUnits,
+    }),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.error || "خطا در به‌روزرسانی واحدهای دانشجو");
+  }
+
+  return await response.json();
+}
+
