@@ -301,13 +301,21 @@ export default function ClassesPage() {
     <div className="page">
       <div className="page-header">
         <h2 className="page-title">مدیریت کلاس‌ها</h2>
-        <button 
-          className="btn btn--primary" 
-          onClick={handleAdd}
-          disabled={courses.length === 0}
-        >
-          + افزودن کلاس جدید
-        </button>
+        <div style={{ display: "flex", gap: "12px" }}>
+          <a
+            href="/admin/classes/auto-create"
+            className="btn btn--secondary"
+          >
+            ایجاد خودکار کلاس‌ها
+          </a>
+          <button 
+            className="btn btn--primary" 
+            onClick={handleAdd}
+            disabled={courses.length === 0}
+          >
+            + افزودن کلاس جدید
+          </button>
+        </div>
       </div>
 
       {courses.length === 0 ? (

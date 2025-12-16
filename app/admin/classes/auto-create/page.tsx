@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getCourses, getInstructors, getClasses, createClass, type Course, type Instructor } from "@lib/api";
+import { getCourses, getInstructors, getClasses, type Course, type Instructor } from "@lib/api";
 import { useRouter } from "next/navigation";
+import AddCourseForm from "./AddCourseForm";
 
 interface CourseGroup {
   courseId: number;
@@ -79,7 +80,8 @@ export default function AutoCreateClassesPage() {
 
     try {
       // فراخوانی API برای ایجاد کلاس‌ها
-      const response = await fetch("http://localhost:8000/api/classes/auto-create/", {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${API_BASE_URL}/api/classes/auto_create/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -229,52 +231,13 @@ export default function AutoCreateClassesPage() {
         </div>
 
         <div style={{ marginTop: "20px", padding: "16px", background: "#f8fafc", borderRadius: "8px" }}>
-          <div className="form-grid">
-            <div className="form-group">
-              <label className="form-label">انتخاب درس</label>
-              <select
-                className="form-input"
-                onChange={(e) => {
-                  const courseId = parseInt(e.target.value);
-                  if (courseId) {
-                    const course = courses.find(c => c.id === courseId);
-                    if (course && !courseGroups.find(cg => cg.courseId === courseId)) {
-                      setCourseGroups([...courseGroups, {
-                        courseId: course.id,
-                        courseCode: course.code,
-                        courseName: course.name,
-                        groups: 1,
-                      }]);
-                      e.target.value = "";
-                    }
-                  }
-                }}
-              >
-                <option value="">درس را انتخاب کنید</option>
-                {courses
-                  .filter(c => !courseGroups.find(cg => cg.courseId === c.id))
-                  .map(course => (
-                    <option key={course.id} value={course.id}>
-                      {course.code} - {course.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">تعداد گروه</label>
-              <input
-                type="number"
-                className="form-input"
-                min="1"
-                max="10"
-                value="1"
-                onChange={(e) => {
-                  // این بخش بعداً کامل می‌شود
-                }}
-                disabled
-              />
-            </div>
-          </div>
+          <AddCourseForm 
+            courses={courses}
+            courseGroups={courseGroups}
+            onAdd={(courseGroup) => {
+              setCourseGroups([...courseGroups, courseGroup]);
+            }}
+          />
         </div>
       </div>
 
