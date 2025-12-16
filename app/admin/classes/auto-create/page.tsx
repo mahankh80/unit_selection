@@ -26,6 +26,7 @@ export default function AutoCreateClassesPage() {
   const [examStartDate, setExamStartDate] = useState("");
   const [examEndDate, setExamEndDate] = useState("");
   const [capacity, setCapacity] = useState("30");
+  const [useAI, setUseAI] = useState(false);
 
   // بارگذاری داده‌ها
   useState(() => {
@@ -92,6 +93,7 @@ export default function AutoCreateClassesPage() {
           exam_start_date: examStartDate,
           exam_end_date: examEndDate,
           default_capacity: parseInt(capacity),
+          use_ai: useAI,
         }),
       });
 
@@ -165,19 +167,35 @@ export default function AutoCreateClassesPage() {
 
       <div className="settings-card" style={{ marginBottom: "24px" }}>
         <h2 className="settings-section__title" style={{ marginBottom: "16px" }}>
-          ظرفیت پیش‌فرض
+          تنظیمات
         </h2>
-        <div className="form-group">
-          <label className="form-label">ظرفیت هر کلاس</label>
-          <input
-            type="number"
-            className="form-input"
-            min="10"
-            max="100"
-            value={capacity}
-            onChange={(e) => setCapacity(e.target.value)}
-            required
-          />
+        <div className="form-grid">
+          <div className="form-group">
+            <label className="form-label">ظرفیت هر کلاس</label>
+            <input
+              type="number"
+              className="form-input"
+              min="10"
+              max="100"
+              value={capacity}
+              onChange={(e) => setCapacity(e.target.value)}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <input
+                type="checkbox"
+                checked={useAI}
+                onChange={(e) => setUseAI(e.target.checked)}
+                style={{ width: "18px", height: "18px" }}
+              />
+              استفاده از AI Agent (هوش مصنوعی)
+            </label>
+            <span className="form-hint" style={{ marginTop: "4px", display: "block" }}>
+              AI agent با تحلیل اطلاعات، تصمیمات بهینه‌تری می‌گیرد
+            </span>
+          </div>
         </div>
       </div>
 
