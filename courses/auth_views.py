@@ -4,6 +4,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
+from django.contrib.auth import get_user_model
+from .models import Student
+
+User = get_user_model()
 
 
 @api_view(["POST"])
@@ -135,6 +139,90 @@ def current_user(request):
             "first_name": user.first_name,
             "last_name": user.last_name,
             "email": user.email,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def student_login(request):
+    """
+    Login endpoint برای دانشجو
+    
+    Request:
+        {
+            "student_id": "4012345678",
+            "password": "password123"
+        }
+    
+    Response:
+        {
+            "token": "abc123...",
+            "user": {
+                "id": 1,
+                "username": "4012345678",
+                "type": "student",
+                "student_id": "4012345678",
+                "first_name": "علی",
+                "last_name": "احمدی",
+                "email": "ali@example.com"
+            }
+        }
+    """
+    student_id = request.data.get("student_id")
+    password = request.data.get("password")
+
+    if not student_id or not password:
+        return Response(
+            {"error": "لطفاً شماره دانشجویی و رمز عبور را وارد کنید"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # پیدا کردن دانشجو با شماره دانشجویی
+    try:
+        student = Student.objects.get(student_id=student_id, is_active=True)
+    except Student.DoesNotExist:
+        return Response(
+            {"error": "شماره دانشجویی یافت نشد"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # احراز هویت با username کاربر
+    user = authenticate(username=student.user.username, password=password)
+
+    if user is None:
+        return Response(
+            {"error": "رمز عبور اشتباه است"},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    # بررسی اینکه کاربر مربوط به این دانشجو است
+    if user != student.user:
+        return Response(
+            {"error": "خطا در احراز هویت"},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    # ایجاد یا دریافت token
+    token, created = Token.objects.get_or_create(user=user)
+
+    # Response با اطلاعات کامل
+    return Response(
+        {
+            "token": token.key,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "type": "student",
+                "is_staff": False,
+                "student_id": student.student_id,
+                "first_name": student.first_name,
+                "last_name": student.last_name,
+                "email": student.email,
+                "major": student.major,
+                "entry_year": student.entry_year,
+            },
         },
         status=status.HTTP_200_OK,
     )
