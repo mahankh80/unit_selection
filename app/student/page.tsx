@@ -1,66 +1,72 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { getCourses, type Course as APICourse } from "@lib/api";
+import { getClasses, type CourseOffering } from "@lib/api";
 
-type Course = {
+type ClassItem = {
   id: number;
-  code: string;
-  name: string;
-  units: number;
-  course_type: string;
-};
-
-const courseTypeLabels: Record<string, string> = {
-  THEORETICAL: "نظری",
-  PRACTICAL: "عملی",
-  GENERAL: "عمومی",
-  ELECTIVE: "اختیاری",
+  course_code: string;
+  course_name: string;
+  course_units: number;
+  instructor: string;
+  class_number: string;
+  capacity: number;
+  enrolled_count: number;
+  class_time: string;
+  exam_time: string;
+  is_full: boolean;
 };
 
 export default function StudentPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    loadCourses();
+    loadClasses();
   }, []);
 
-  const loadCourses = async () => {
+  const loadClasses = async () => {
     setLoading(true);
     setError(null);
     try {
-      const apiCourses = await getCourses();
-      const formattedCourses: Course[] = apiCourses.map((course) => ({
-        id: course.id,
-        code: course.code,
-        name: course.name,
-        units: course.units,
-        course_type: course.course_type,
+      const apiClasses = await getClasses();
+      const formattedClasses: ClassItem[] = apiClasses.map((cls: CourseOffering) => ({
+        id: cls.id,
+        course_code: cls.course_code || "",
+        course_name: cls.course_name || "",
+        course_units: cls.course_units || 0,
+        instructor: cls.instructor,
+        class_number: cls.class_number,
+        capacity: cls.capacity,
+        enrolled_count: cls.enrolled_count,
+        class_time: cls.class_time,
+        exam_time: cls.exam_time,
+        is_full: cls.is_full || false,
       }));
-      setCourses(formattedCourses);
+      setClasses(formattedClasses);
     } catch (err) {
-      setError("خطا در دریافت لیست دروس");
+      setError("خطا در دریافت لیست کلاس‌ها");
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredCourses = useMemo(() => {
+  const filteredClasses = useMemo(() => {
     if (!searchQuery.trim()) {
-      return courses;
+      return classes;
     }
 
     const query = searchQuery.toLowerCase().trim();
-    return courses.filter(
-      (course) =>
-        course.code.toLowerCase().includes(query) ||
-        course.name.toLowerCase().includes(query)
+    return classes.filter(
+      (cls) =>
+        cls.course_name.toLowerCase().includes(query) ||
+        cls.instructor.toLowerCase().includes(query) ||
+        cls.course_code.toLowerCase().includes(query)
     );
-  }, [courses, searchQuery]);
+  }, [classes, searchQuery]);
 
   if (loading) {
     return (
@@ -89,9 +95,9 @@ export default function StudentPage() {
   return (
     <div className="student-page">
       <div className="student-page__header">
-        <h2 className="student-page__title">لیست دروس</h2>
+        <h2 className="student-page__title">لیست دروس ارائه شده</h2>
         <p className="student-page__description">
-          می‌توانید دروس را جستجو کنید و اطلاعات آن‌ها را مشاهده کنید
+          می‌توانید دروس ارائه شده در ترم را مشاهده و جستجو کنید
         </p>
       </div>
 
@@ -123,7 +129,7 @@ export default function StudentPage() {
           <input
             type="text"
             className="student-search__input"
-            placeholder="جستجوی درس (کد یا نام درس)..."
+            placeholder="جستجو بر اساس نام درس یا نام استاد..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -139,10 +145,10 @@ export default function StudentPage() {
         </div>
       </div>
 
-      <div className="student-courses">
-        {filteredCourses.length === 0 ? (
+      <div className="student-classes">
+        {filteredClasses.length === 0 ? (
           <div className="student-empty">
-            <p>هیچ درسی یافت نشد</p>
+            <p>هیچ کلاسی یافت نشد</p>
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
@@ -153,22 +159,77 @@ export default function StudentPage() {
             )}
           </div>
         ) : (
-          <div className="student-courses__grid">
-            {filteredCourses.map((course) => (
-              <div key={course.id} className="student-course-card">
-                <div className="student-course-card__header">
-                  <span className="student-course-card__code">
-                    {course.code}
-                  </span>
-                  <span className="student-course-card__type">
-                    {courseTypeLabels[course.course_type] || course.course_type}
-                  </span>
-                </div>
-                <h3 className="student-course-card__name">{course.name}</h3>
-                <div className="student-course-card__footer">
-                  <span className="student-course-card__units">
-                    {course.units} واحد
-                  </span>
+          <div className="student-classes__list">
+            {filteredClasses.map((cls) => (
+              <div key={cls.id} className="student-class-card">
+                <div className="student-class-card__main">
+                  <div className="student-class-card__header">
+                    <div className="student-class-card__course">
+                      <span className="student-class-card__code">
+                        {cls.course_code}
+                      </span>
+                      <h3 className="student-class-card__name">
+                        {cls.course_name}
+                      </h3>
+                    </div>
+                    <div className="student-class-card__badge">
+                      {cls.is_full ? (
+                        <span className="student-class-card__badge--full">
+                          پر
+                        </span>
+                      ) : (
+                        <span className="student-class-card__badge--available">
+                          {cls.capacity - cls.enrolled_count} صندلی خالی
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="student-class-card__details">
+                    <div className="student-class-card__detail-item">
+                      <span className="student-class-card__detail-label">
+                        استاد:
+                      </span>
+                      <span className="student-class-card__detail-value">
+                        {cls.instructor}
+                      </span>
+                    </div>
+                    <div className="student-class-card__detail-item">
+                      <span className="student-class-card__detail-label">
+                        شماره کلاس:
+                      </span>
+                      <span className="student-class-card__detail-value">
+                        {cls.class_number}
+                      </span>
+                    </div>
+                    <div className="student-class-card__detail-item">
+                      <span className="student-class-card__detail-label">
+                        واحد:
+                      </span>
+                      <span className="student-class-card__detail-value">
+                        {cls.course_units}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="student-class-card__schedule">
+                    <div className="student-class-card__schedule-item">
+                      <span className="student-class-card__schedule-label">
+                        زمان کلاس:
+                      </span>
+                      <span className="student-class-card__schedule-value">
+                        {cls.class_time}
+                      </span>
+                    </div>
+                    <div className="student-class-card__schedule-item">
+                      <span className="student-class-card__schedule-label">
+                        زمان امتحان:
+                      </span>
+                      <span className="student-class-card__schedule-value">
+                        {cls.exam_time}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -176,11 +237,9 @@ export default function StudentPage() {
         )}
       </div>
 
-      {searchQuery && filteredCourses.length > 0 && (
+      {searchQuery && filteredClasses.length > 0 && (
         <div className="student-results-info">
-          <p>
-            {filteredCourses.length} درس یافت شد
-          </p>
+          <p>{filteredClasses.length} کلاس یافت شد</p>
         </div>
       )}
     </div>
